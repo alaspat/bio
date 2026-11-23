@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CT, Fluoroscopy &amp; OPG Lab — modality simulator</title>
+  <meta name="description" content="Interactive simulation of a CT scanner (axial phantom, Radon projections, filtered back-projection, HU windowing, dose), a pulsed fluoroscopy system, and a dental panoramic (OPG) unit." />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23070c12'/%3E%3Ccircle cx='32' cy='32' r='17' fill='none' stroke='%2345d8ff' stroke-width='3'/%3E%3Ccircle cx='32' cy='32' r='7' fill='none' stroke='%23ffb054' stroke-width='3'/%3E%3C/svg%3E" />
+  <link rel="stylesheet" href="css/styles.css" />
+  <link rel="stylesheet" href="css/ct-fluoro.css" />
+</head>
+<body>
+  <header class="app-header">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 48 48" role="img">
+          <defs>
+            <linearGradient id="markRing" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stop-color="#45d8ff" />
+              <stop offset="1" stop-color="#b58cff" />
+            </linearGradient>
+          </defs>
+          <rect x="2" y="2" width="44" height="44" rx="12" fill="#08121b" stroke="#1e3446" />
+          <circle cx="24" cy="24" r="13.5" fill="none" stroke="url(#markRing)" stroke-width="2.2" />
+          <circle cx="24" cy="24" r="8" fill="none" stroke="#274257" stroke-width="1.4" />
+          <circle cx="24" cy="24" r="4" fill="#46d9ff" />
+          <circle cx="37" cy="24" r="2.6" fill="#ffb054" />
+        </svg>
+      </span>
+      <div class="brand-text">
+        <p class="eyebrow">Modality physics · interactive lab</p>
+        <h1>CT, Fluoroscopy &amp; OPG Lab <span class="badge">InsertTube</span></h1>
+      </div>
+    </div>
+
+    <div class="view-toggle" role="tablist" aria-label="Imaging modality">
+      <button id="modeCT" type="button" class="is-active" role="tab">CT scan</button>
+      <button id="modeFluoro" type="button" role="tab">Fluoroscopy</button>
+      <button id="modeOPG" type="button" role="tab">OPG</button>
+    </div>
+
+    <div class="header-actions">
+      <a class="btn ghost" href="index.html">X-ray tube lab</a>
+      <button class="btn primary" id="scanBtn" type="button">
+        <span class="btn-icon" aria-hidden="true">◎</span> Start scan
+      </button>
+    </div>
+  </header>
+
+  <div class="app-shell cf-shell">
+    <!-- ============================== CONTROLS ============================== -->
+    <aside class="panel controls" aria-label="Scanner controls">
+
+      <!-- ------------------------------- CT ------------------------------- -->
+      <div id="ctControls">
+        <div class="mini-head">
+          <span class="eyebrow">CT protocol</span>
+          <span class="cf-lock">Rotation · 3rd gen</span>
+        </div>
+
+        <section class="control-group">
+          <h2><span>01</span> X-ray source</h2>
+          <div class="control">
+            <div class="control-head">
+              <label for="kVp">Tube voltage <span class="sym">kVp</span></label>
+              <output id="kVpOut" for="kVp">120 kVp</output>
+            </div>
+            <input type="range" id="kVp" min="60" max="140" step="5" value="120" />
+          </div>
+          <div class="control">
+            <div class="control-head">
+              <label for="mA">Tube current <span class="sym">mA</span></label>
+              <output id="mAOut" for="mA">250 mA</output>
+            </div>
+            <input type="range" id="mA" min="50" max="600" step="10" value="250" />
+          </div>
+          <p class="control-hint">mAs = tube current × rotation time; it sets quantum noise in the reconstructed slice.</p>
+        </section>
+
+        <section class="control-group">
+          <h2><span>02</span> Scan geometry</h2>
+          <div class="control">
+            <div class="control-head">
+              <label for="rotTime">Rotation time <span class="sym">s</span></label>
+              <output id="rotTimeOut" for="rotTime">1.5 s</output>
+            </div>
+            <input type="range" id="rotTime" min="0.5" max="6" step="0.1" value="1.5" />
+          </div>
+          <div class="control">
+            <div class="control-head">
+              <label for="projCount">Projections <span class="sym">views/rot</span></label>
+              <output id="projOut" for="projCount">180 views</output>
+            </div>
+            <input type="range" id="projCount" min="60" max="360" step="10" value="180" />
+          </div>
+          <div class="control">
+            <div class="control-head">
+              <label for="sliceThk">Slice thickness <span class="sym">mm</span></label>
+              <output id="sliceOut" for="sliceThk">5.0 mm</output>
+            </div>
+            <input type="range" id="sliceThk" min="0.5" max="10" step="0.5" value="5" />
+          </div>
+          <div class="control">
+            <div class="control-head">
+              <label for="scanLen">Scan length <span class="sym">cm</span></label>
+              <output id="scanLenOut" for="scanLen">30 cm</output>
+            </div>
+            <input type="range" id="scanLen" min="5" max="100" step="5" value="30" />
+          </div>
+        </section>
+
+        <section class="control-group">
+          <h2><span>03</span> Window / level</h2>
+          <div class="control">
+            <div class="control-head">
+              <label for="winW">Window width <span class="sym">WW</span></label>
+              <output id="winWOut" for="winW">400 HU</output>
+            </div>
+            <input type="range" id="winW" min="100" max="2000" step="10" value="400" />
+          </div>
+          <div class="control">
+            <div class="control-head">
+              <label for="winL">Window level <span class="sym">WL</span></label>
+              <output id="winLOut" for="winL">40 HU</output>
+            </div>
+            <input type="range" id="winL" min="-800" max="800" step="10" value="40" />
+          </div>
+          <p class="control-hint">Lung window ≈ WW 1500 / WL −600 · mediastinum ≈ WW 350 / WL 40 · bone ≈ WW 2000 / WL 400.</p>
+        </section>
+
+        <section class="control-group">
+          <h2><span>04</span> Reconstruction filter</h2>
+          <label class="toggle-row" for="hannWindow">
+            <input type="checkbox" id="hannWindow" />
+            <span>Hann apodisation</span>
+            <output id="hannOut" for="hannWindow">Ram-Lak</output>
+          </label>
+          <p class="control-hint">The Hann window rolls off the ramp's high frequencies: less noise, slightly softer edges. Toggle it to compare — the view is refiltered from the same sinogram.</p>
+        </section>
+
+        <div class="insight">
+          <span class="insight-dot" aria-hidden="true"></span>
+          <div>
+            <span class="eyebrow">What you are watching</span>
+            <p>Each projection is a Radon line-integral through the phantom. The ramp filter sharpens them and every view is back-projected onto the growing image — the classic filtered back-projection you can watch converge.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- ---------------------------- FLUOROSCOPY ---------------------------- -->
+      <div id="flControls" hidden>
+        <div class="mini-head">
+          <span class="eyebrow">Fluoroscopy setup</span>
+          <span class="cf-lock">Pulsed · live</span>
+        </div>
+
+        <section class="control-group">
+          <h2><span>01</span> Beam</h2>
+          <div class="control">
+            <div class="control-head">
+              <label for="flkVp">Tube voltage <span class="sym">kVp</span></label>
+              <output id="flkVpOut" for="flkVp">80 kVp</output>
+            </div>
+            <input type="range" id="flkVp" min="50" max="120" step="5" value="80" />
+          </div>
+          <div class="control">
+            <div class="control-head">
+              <label for="flmA">Tube current <span class="sym">mA</span></label>
+              <output id="flmAOut" for="flmA">6.0 mA</output>
+            </div>
+            <input type="range" id="flmA" min="1" max="20" step="0.5" value="6" />
+          </div>
+        </section>
+
+        <section class="control-group">
+          <h2><span>02</span> Pulsing</h2>
+          <div class="control">
+            <div class="control-head">
+              <label for="pulseWidth">Pulse width <span class="sym">ms</span></label>
+              <output id="pulseWidthOut" for="pulseWidth">20 ms</output>
+            </div>
+            <input type="range" id="pulseWidth" min="2" max="60" step="1" value="20" />
+          </div>
+          <div class="control">
+            <div class="control-head">
+              <label for="pulseRate">Pulse rate <span class="sym">pps</span></label>
+              <output id="pulseRateOut" for="pulseRate">7.5 pps</output>
+            </div>
+            <input type="range" id="pulseRate" min="1" max="30" step="0.5" value="7.5" />
+          </div>
+          <p class="control-hint">Dose per pulse ≈ mA × pulse width. Lowering the rate cuts dose but also lowers the frame rate the eye sees.</p>
+        </section>
+
+        <div class="insight">
+          <span class="insight-dot" aria-hidden="true"></span>
+          <div>
+            <span class="eyebrow">What you are watching</span>
+            <p>A pulsed beam fires short exposures into a chest phantom. Iodinated contrast travels along the vessel, breathing shifts the anatomy, and the kerma meter accumulates in real time.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- ------------------------------- OPG ------------------------------- -->
+      <div id="opgControls" hidden>
+        <div class="mini-head">
+          <span class="eyebrow">Dental panoramic protocol</span>
+          <span class="cf-lock">Slit · rotational</span>
+        </div>
+
+        <section class="control-group">
+          <h2><span>01</span> X-ray source</h2>
+          <div class="control">
+            <div class="control-head">
+              <label for="opgkVp">Tube voltage <span class="sym">kVp</span></label>
+              <output id="opgkVpOut" for="opgkVp">75 kVp</output>
+            </div>
+            <input type="range" id="opgkVp" min="60" max="100" step="1" value="75" />
+          </div>
+          <div class="control">
+            <div class="control-head">
+              <label for="opgmA">Tube current <span class="sym">mA</span></label>
+              <output id="opgmAOut" for="opgmA">8 mA</output>
+            </div>
+            <input type="range" id="opgmA" min="2" max="16" step="0.5" value="8" />
+          </div>
+        </section>
+
+        <section class="control-group">
+          <h2><span>02</span> Panoramic sweep</h2>
+          <div class="control">
+            <div class="control-head">
+              <label for="opgRotTime">Sweep time <span class="sym">s</span></label>
+              <output id="opgRotTimeOut" for="opgRotTime">9.0 s</output>
+            </div>
+            <input type="range" id="opgRotTime" min="4" max="18" step="0.5" value="9" />
+          </div>
+          <div class="control">
+            <div class="control-head">
+              <label for="opgArch">Dental arch <span class="sym">shape</span></label>
+              <output id="opgArchOut" for="opgArch">U-arch</output>
+            </div>
+            <input type="range" id="opgArch" min="0" max="2" step="1" value="0" />
+          </div>
+          <div class="control">
+            <div class="control-head">
+              <label for="opgFocus">Focal trough <span class="sym">layer</span></label>
+              <output id="opgFocusOut" for="opgFocus">Centred · layer 0</output>
+            </div>
+            <input type="range" id="opgFocus" min="-2" max="2" step="1" value="0" />
+          </div>
+          <p class="control-hint">The tube and slit detector orbit the head in one sweep; the focal trough follows the dental arch so the teeth stay in focus while everything else is blurred.</p>
+        </section>
+
+        <div class="insight">
+          <span class="insight-dot" aria-hidden="true"></span>
+          <div>
+            <span class="eyebrow">What you are watching</span>
+            <p>A narrow fan beam sweeps once around the jaw while the detector collects slice after slice. The vertical strips are stitched into a flattened panoramic view of the whole dental arch.</p>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- ================================ STAGE =============================== -->
+    <main class="stage-column">
+
+      <!-- ------------------------------- CT ------------------------------- -->
+      <div id="ctStage" class="stage-column">
+        <section class="panel stage">
+          <div class="stage-head">
+            <div>
+              <p class="eyebrow">Gantry · 3D room</p>
+              <h2>Rotating source–detector pair</h2>
+            </div>
+            <div class="stage-tags">
+              <span class="tag accent" id="tagViews">180 views</span>
+              <span class="tag">360° acquisition</span>
+            </div>
+          </div>
+          <div class="cf-canvas-wrap cf-gantry">
+            <canvas id="gantryCanvas"></canvas>
+          </div>
+        </section>
+
+        <div class="cf-row">
+          <div class="card">
+            <div class="card-head">
+              <div>
+                <h3>Reconstruction</h3>
+                <p>Filtered back-projection · 176 × 176</p>
+              </div>
+              <span class="tag">HU cursor</span>
+            </div>
+            <div class="cf-canvas-wrap cf-square">
+              <canvas id="reconCanvas"></canvas>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-head">
+              <div>
+                <h3>Sinogram</h3>
+                <p>Line integrals · 181 channels</p>
+              </div>
+              <span class="tag">time ↓</span>
+            </div>
+            <div class="cf-canvas-wrap cf-square">
+              <canvas id="sinoCanvas"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <div class="card cf-guide">
+          <div class="card-head">
+            <div>
+              <h3>Component guide</h3>
+              <p>Parts of the CT gantry room</p>
+            </div>
+            <span class="tag">3D room</span>
+          </div>
+          <ul class="cf-guide-list">
+            <li>
+              <span class="dot" style="--c:#8ea6b8"></span>
+              <div><b>Gantry ring</b><em>Rotating frame whose bore the patient passes through.</em></div>
+            </li>
+            <li>
+              <span class="dot" style="--c:#ffb257"></span>
+              <div><b>X-ray tube</b><em>Mounted inside the rotor; it projects a fan beam across the bore.</em></div>
+            </li>
+            <li>
+              <span class="dot" style="--c:#46d9ff"></span>
+              <div><b>Detector array</b><em>Curved row of 181 channels that measures the transmitted beam.</em></div>
+            </li>
+            <li>
+              <span class="dot" style="--c:#7ea6c0"></span>
+              <div><b>Patient couch</b><em>Cantilevered table that feeds the torso into the gantry.</em></div>
+            </li>
+            <li>
+              <span class="dot" style="--c:#cc9e80"></span>
+              <div><b>Torso phantom</b><em>Axial chest cross-section — lungs, heart, ribs and spine.</em></div>
+            </li>
+            <li>
+              <span class="dot" style="--c:#b58cff"></span>
+              <div><b>Operator console</b><em>Control desk that sets the protocol and shows the images.</em></div>
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- ---------------------------- FLUOROSCOPY ---------------------------- -->
+      <div id="flStage" class="stage-column" hidden>
+        <section class="panel stage">
+          <div class="stage-head">
+            <div>
+              <p class="eyebrow">C-arm · 3D room</p>
+              <h2>Mobile C-arm — oblique projection</h2>
+            </div>
+            <div class="stage-tags">
+              <span class="tag accent" id="tagFlRate">7.5 pps</span>
+              <span class="tag">spot imaging</span>
+            </div>
+          </div>
+          <div class="cf-canvas-wrap cf-gantry">
+            <canvas id="carmCanvas"></canvas>
+          </div>
+        </section>
+
+        <div class="cf-row">
+          <div class="card">
+            <div class="card-head">
+              <div>
+                <h3>Fluoroscopy monitor</h3>
+                <p>Pulsed live image · 240 × 288</p>
+              </div>
+              <span class="tag">contrast bolus</span>
+            </div>
+            <div class="cf-fluoro-frame">
+              <canvas id="fluoroCanvas" class="cf-fl-canvas"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <div class="card cf-guide">
+          <div class="card-head">
+            <div>
+              <h3>Component guide</h3>
+              <p>Parts of the mobile C-arm room</p>
+            </div>
+            <span class="tag">3D room</span>
+          </div>
+          <ul class="cf-guide-list">
+            <li>
+              <span class="dot" style="--c:#9fb0c4"></span>
+              <div><b>C-arm arc</b><em>The hoop holding the tube and detector opposite each other; it slides to any oblique angle.</em></div>
+            </li>
+            <li>
+              <span class="dot" style="--c:#ffb257"></span>
+              <div><b>X-ray tube head</b><em>Sealed source at one end of the arc; it fires the pulsed beam.</em></div>
+            </li>
+            <li>
+              <span class="dot" style="--c:#46d9ff"></span>
+              <div><b>Image intensifier</b><em>Detector at the far end; it captures the live fluoroscopic image.</em></div>
+            </li>
+            <li>
+              <span class="dot" style="--c:#7e8ea6"></span>
+              <div><b>Carriage &amp; column</b><em>Motorised cradle the hoop slides through as it angulates.</em></div>
+            </li>
+            <li>
+              <span class="dot" style="--c:#5f7387"></span>
+              <div><b>Mobile base</b><em>Wheeled chassis and castors; it stays fixed to the floor.</em></div>
+            </li>
+            <li>
+              <span class="dot" style="--c:#7ea6c0"></span>
+              <div><b>Patient couch</b><em>Cantilevered table supporting the torso under the arc.</em></div>
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- ------------------------------- OPG ------------------------------- -->
+      <div id="opgStage" class="stage-column" hidden>
+        <section class="panel stage">
+          <div class="stage-head">
+            <div>
+              <p class="eyebrow">Panoramic unit · 3D room</p>
+              <h2>Rotating slit beam around the head</h2>
+            </div>
+            <div class="stage-tags">
+              <span class="tag accent" id="tagOpgAngle">0°</span>
+              <span class="tag">single sweep</span>
+            </div>
+          </div>
+          <div class="cf-canvas-wrap cf-gantry">
+            <canvas id="opgCanvas"></canvas>
+          </div>
+        </section>
+
+        <div class="cf-row">
+          <div class="card cf-span-2">
+            <div class="card-head">
+              <div>
+                <h3>Panoramic radiograph</h3>
+                <p>OPG · dental arch unrolled left→right</p>
+              </div>
+              <span class="tag">stitched sweep</span>
+            </div>
+            <div class="cf-pano-frame">
+              <canvas id="panoCanvas" class="cf-pano-canvas"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <div class="card cf-guide">
+          <div class="card-head">
+            <div>
+              <h3>Component guide</h3>
+              <p>Parts of the panoramic (OPG) unit</p>
+            </div>
+            <span class="tag">3D room</span>
+          </div>
+          <ul class="cf-guide-list">
+            <li>
+              <span class="dot" style="--c:#9fb0c4"></span>
+              <div><b>Rotating arm</b><em>Semicircular gantry that carries the tube and sensor once around the head.</em></div>
+            </li>
+            <li>
+              <span class="dot" style="--c:#ffb257"></span>
+              <div><b>X-ray tube</b><em>Source at the leading end of the arm; it emits a narrow fan beam.</em></div>
+            </li>
+            <li>
+              <span class="dot" style="--c:#ffd27a"></span>
+              <div><b>Slit collimator</b><em>Vertical jaws that narrow the beam to the thin slice the sensor records.</em></div>
+            </li>
+            <li>
+              <span class="dot" style="--c:#46d9ff"></span>
+              <div><b>Detector sensor</b><em>Slit sensor opposite the tube; each column becomes one strip of the panorama.</em></div>
+            </li>
+            <li>
+              <span class="dot" style="--c:#7e8ea6"></span>
+              <div><b>Head positioner</b><em>Bite block and chin rest that align the dental arch in the focal trough.</em></div>
+            </li>
+            <li>
+              <span class="dot" style="--c:#7e8ea6"></span>
+              <div><b>Column &amp; lift</b><em>Motorised mast that raises the whole arm to the patient's height.</em></div>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </main>
+
+    <!-- ================================ STATS =============================== -->
+    <aside class="panel side cf-side">
+
+      <div id="ctStats" class="cf-stats">
+        <div class="cf-state">
+          <span class="k">Scanner state</span>
+          <span class="cf-state-v" id="ctState">Idle</span>
+        </div>
+
+        <div class="stat-grid">
+          <div class="stat">
+            <span class="k">Tube load</span>
+            <span class="v" id="ctMAs">—</span>
+            <span class="s">mA · rotation time</span>
+          </div>
+          <div class="stat">
+            <span class="k">Projections</span>
+            <span class="v" id="ctProj"><b>0</b><em>/ 180</em></span>
+            <span class="s">processed views</span>
+          </div>
+          <div class="stat">
+            <span class="k">CTDI<sub>vol</sub></span>
+            <span class="v" id="ctCTDI">—</span>
+            <span class="s">volume dose index</span>
+          </div>
+          <div class="stat">
+            <span class="k">DLP</span>
+            <span class="v" id="ctDLP">—</span>
+            <span class="s">dose × length</span>
+          </div>
+          <div class="stat">
+            <span class="k">ROI mean</span>
+            <span class="v" id="ctROI">—</span>
+            <span class="s">soft-tissue region</span>
+          </div>
+          <div class="stat">
+            <span class="k">ROI noise</span>
+            <span class="v" id="ctNoise">—</span>
+            <span class="s">standard deviation</span>
+          </div>
+        </div>
+
+        <div class="metrics-card">
+          <p class="eyebrow">Cursor read-out</p>
+          <div class="cf-hover">
+            <span class="cf-hover-v" id="ctHover">—</span>
+            <span class="cf-hover-hint">Hover the reconstruction to sample its Hounsfield value.</span>
+          </div>
+        </div>
+      </div>
+
+      <div id="flStats" class="cf-stats" hidden>
+        <div class="cf-state">
+          <span class="k">System state</span>
+          <span class="cf-state-v" id="flState">Standby</span>
+        </div>
+
+        <div class="stat-grid">
+          <div class="stat">
+            <span class="k">Pulses fired</span>
+            <span class="v" id="flPulses"><b>0</b><em>pulses</em></span>
+            <span class="s">this run</span>
+          </div>
+          <div class="stat">
+            <span class="k">Cumulative kerma</span>
+            <span class="v" id="flKerma">—</span>
+            <span class="s">entrance air kerma</span>
+          </div>
+          <div class="stat">
+            <span class="k">Dose rate</span>
+            <span class="v" id="flRate">—</span>
+            <span class="s">steady-state estimate</span>
+          </div>
+          <div class="stat">
+            <span class="k">Last pulse</span>
+            <span class="v" id="flLast">—</span>
+            <span class="s">mA · pulse width</span>
+          </div>
+        </div>
+
+        <div class="metrics-card">
+          <p class="eyebrow">Contrast study</p>
+          <div class="cf-hover">
+            <span class="cf-hover-hint">A bolus of contrast follows the vessel while the phantom breathes. Watch the kerma build pulse by pulse.</span>
+          </div>
+        </div>
+      </div>
+
+      <div id="opgStats" class="cf-stats" hidden>
+        <div class="cf-state">
+          <span class="k">Unit state</span>
+          <span class="cf-state-v" id="opgState">Standby</span>
+        </div>
+
+        <div class="stat-grid">
+          <div class="stat">
+            <span class="k">Arm angle</span>
+            <span class="v" id="opgAngle"><b>0</b><em>°</em></span>
+            <span class="s">sweep position</span>
+          </div>
+          <div class="stat">
+            <span class="k">Sweep progress</span>
+            <span class="v" id="opgProgress"><b>0</b><em>%</em></span>
+            <span class="s">of the arc</span>
+          </div>
+          <div class="stat">
+            <span class="k">Collimated slice</span>
+            <span class="v" id="opgSlice">—</span>
+            <span class="s">beam height</span>
+          </div>
+          <div class="stat">
+            <span class="k">Cumulative kerma</span>
+            <span class="v" id="opgKerma">—</span>
+            <span class="s">entrance air kerma</span>
+          </div>
+        </div>
+
+        <div class="metrics-card">
+          <p class="eyebrow">Panoramic image</p>
+          <div class="cf-hover">
+            <span class="cf-hover-hint">Strips fill in as the arm rotates, building a flat view of the dental arch. Change the arch shape or focal trough to shift what stays sharp.</span>
+          </div>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <footer class="app-footer">
+    <p><strong>CT, Fluoroscopy &amp; OPG Lab.</strong> <span>Reuses the same InsertTube spectrum, filtration and kerma model as the tube lab, then projects it through the chest phantom or the dental arch.</span></p>
+    <p><span>Educational model — magnitudes are illustrative, not for clinical dose reporting.</span></p>
+  </footer>
+
+  <script src="js/insert-tube.js"></script>
+  <script src="js/phantom.js"></script>
+  <script src="js/tube3d.js"></script>
+  <script src="js/scene3d.js"></script>
+  <script src="js/ct-fluoro.js"></script>
+</body>
+</html>
